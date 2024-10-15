@@ -97,8 +97,43 @@ public static class LZSS
     }
 
     // Метод для декодирования строки
-    public static string Decode(List<(bool coded, int start, int length, char symbol)> encodingData)
+    public static string Decode(List<(bool coded, int start, int length, char symbol)> encodingData, int ws, int bs, Action<string> log)
     {
-        return "";
+        var decoded = "";
+        var win = new Window(ws);
+
+        foreach (var g in encodingData)
+        {
+            log($"{g.coded},{g.start},{g.length},{g.symbol}");
+        }
+
+        foreach (var g in encodingData)
+        {
+            if (!g.coded)
+            {
+                decoded += g.symbol;
+                win.Move(g.symbol);
+
+                log(g.symbol.ToString());
+            }
+            else
+            {
+                var start = g.start - (win.Size - win.Container.Count);
+
+                var print = "";
+
+                for (var i = start; i < start + g.length; i++)
+                {
+                    print += win.Container[i];
+                }
+
+                decoded += print;
+                win.Move(print);
+
+                log($"{g.coded},{g.start},{g.length},{g.symbol} -> {print}");
+            }
+        }
+
+        return decoded;
     }
 }
