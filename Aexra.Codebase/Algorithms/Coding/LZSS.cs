@@ -1,75 +1,104 @@
-﻿using System.Text;
-
-namespace Aexra.Codebase.Algorithms.Coding;
+﻿namespace Aexra.Codebase.Algorithms.Coding;
 public static class LZSS
 {
-    private const int WindowSize = 2048; // Размер окна поиска
-    private const int LookaheadBufferSize = 32; // Размер буфера предварительного просмотра
-
-    // Метод для кодирования строки
-    public static (string encodedString, List<(int, int, char)> encodingData) Encode(string input)
+    private class Window
     {
-        var encodingData = new List<(int, int, char)>();
-        StringBuilder encodedString = new StringBuilder();
+        public int Size { get; private set; }
+        public List<char> Container { get; private set; }
 
-        var cursor = 0;
-
-        while (cursor < input.Length)
+        public Window(int size)
         {
-            var matchLength = 0;
-            var matchDistance = 0;
-            var nextChar = input[cursor];
-
-            // Поиск самой длинной строки, которая совпадает с ранее встречавшейся
-            var searchStart = Math.Max(0, cursor - WindowSize);
-            for (var searchPos = searchStart; searchPos < cursor; searchPos++)
-            {
-                var length = 0;
-                while (length < LookaheadBufferSize && cursor + length < input.Length &&
-                       input[searchPos + length] == input[cursor + length])
-                {
-                    length++;
-                }
-
-                if (length > matchLength)
-                {
-                    matchLength = length;
-                    matchDistance = cursor - searchPos;
-                }
-            }
-
-            if (matchLength > 0)
-            {
-                nextChar = input[cursor + matchLength];
-            }
-
-            encodingData.Add((matchDistance, matchLength, nextChar));
-            encodedString.Append($"({matchDistance},{matchLength},{nextChar})");
-
-            cursor += matchLength + 1;
+            Size = size;
+            Container = new List<char>();
         }
 
-        return (encodedString.ToString(), encodingData);
+        public Window Skip(int count)
+        {
+            for (var _ = 0; _ < count; _++)
+            {
+                Container.RemoveAt(0);
+            }
+            return this;
+        }
+        public Window Move(string chars)
+        {
+            foreach (var c in chars)
+            {
+                Move(c);
+            }
+            return this;
+        }
+        public Window Move(char? c)
+        {
+            if (c != null) Container.Add(c.Value);
+            if (Container.Count > Size) Container.RemoveAt(0);
+            return this;
+        }
+    }
+
+    // Метод для кодирования строки
+    public static (List<(bool coded, int start, int length, char symbol)> data, int ws, int bs) Encode(string input, int ws, int bs, Action<string> log)
+    {
+        var encodingData = new List<(bool coded, int start, int length, char symbol)>();
+        var sourceQueue = new Queue<char>(input);
+
+        var win = new Window(ws);
+        var buf = new Window(bs);
+
+        // INITIAL FILL
+        while (buf.Container.Count < buf.Size)
+        {
+            var isNext = sourceQueue.TryDequeue(out var next);
+            if (isNext) buf.Move(next);
+            else break;
+        }
+
+        // MAIN LOOP
+        while (buf.Container.Count > 0)
+        {
+            // Получим символ из буфера, с которым мы будем работать
+            var subwin = buf.Container.First().ToString();
+
+            // Поверим, есть ли он в окне
+            var start = win.Container.IndexOf(subwin[0]);
+
+            // Такой символ найден
+            if (start >= 0)
+            {
+                // Попытаемся найти следующие символы в исходной строке
+                while (win.Container.Count > start + subwin.Length && buf.Container.Count > subwin.Length && win.Container[start + subwin.Length] == buf.Container[subwin.Length])
+                {
+                    subwin += buf.Container[subwin.Length];
+                }
+
+                // Добавим код закодированного символа
+                encodingData.Add((true, win.Container.Count == win.Size ? start : win.Size - win.Container.Count + start, subwin.Length, '0'));
+            } 
+            else
+            {
+                // Такой символ не найден
+                // Добавим код не закодированного символа
+                encodingData.Add((false, 0, -1, subwin[0]));
+            }
+
+            log($"{string.Join(",", win.Container)} | {string.Join(",", buf.Container)} -> {(encodingData.Last().coded ? $"(1<{encodingData.Last().start},{encodingData.Last().length}>)" : $"(0<{encodingData.Last().symbol}>)")}");
+            
+            foreach (var c in subwin)
+            {
+                win.Move(c);
+
+                var isNext = sourceQueue.TryDequeue(out var next);
+                if (isNext) buf.Move(next);
+                else buf.Skip(1);
+            }
+        }
+
+        return (encodingData, ws, bs);
     }
 
     // Метод для декодирования строки
-    public static string Decode(List<(int distance, int length, char nextChar)> encodingData)
+    public static string Decode(List<(bool coded, int start, int length, char symbol)> encodingData)
     {
-        StringBuilder decodedString = new StringBuilder();
-
-        foreach (var (distance, length, nextChar) in encodingData)
-        {
-            if (distance > 0)
-            {
-                var start = decodedString.Length - distance;
-                for (var i = 0; i < length; i++)
-                {
-                    decodedString.Append(decodedString[start + i]);
-                }
-            }
-            decodedString.Append(nextChar);
-        }
-
-        return decodedString.ToString();
+        return "";
     }
 }
