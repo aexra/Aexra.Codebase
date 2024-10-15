@@ -1,7 +1,7 @@
 ﻿using System.Text;
 
 namespace Aexra.Codebase.Algorithms.Coding;
-public static class LZSSAlgorithm
+public static class LZSS
 {
     private const int WindowSize = 2048; // Размер окна поиска
     private const int LookaheadBufferSize = 32; // Размер буфера предварительного просмотра
@@ -12,19 +12,19 @@ public static class LZSSAlgorithm
         var encodingData = new List<(int, int, char)>();
         StringBuilder encodedString = new StringBuilder();
 
-        int cursor = 0;
+        var cursor = 0;
 
         while (cursor < input.Length)
         {
-            int matchLength = 0;
-            int matchDistance = 0;
-            char nextChar = input[cursor];
+            var matchLength = 0;
+            var matchDistance = 0;
+            var nextChar = input[cursor];
 
             // Поиск самой длинной строки, которая совпадает с ранее встречавшейся
-            int searchStart = Math.Max(0, cursor - WindowSize);
-            for (int searchPos = searchStart; searchPos < cursor; searchPos++)
+            var searchStart = Math.Max(0, cursor - WindowSize);
+            for (var searchPos = searchStart; searchPos < cursor; searchPos++)
             {
-                int length = 0;
+                var length = 0;
                 while (length < LookaheadBufferSize && cursor + length < input.Length &&
                        input[searchPos + length] == input[cursor + length])
                 {
@@ -61,8 +61,8 @@ public static class LZSSAlgorithm
         {
             if (distance > 0)
             {
-                int start = decodedString.Length - distance;
-                for (int i = 0; i < length; i++)
+                var start = decodedString.Length - distance;
+                for (var i = 0; i < length; i++)
                 {
                     decodedString.Append(decodedString[start + i]);
                 }

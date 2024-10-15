@@ -19,7 +19,7 @@ public static class Huffman
         var root = BuildHuffmanTree(frequencyTable);
         var encodingTable = BuildEncodingTable(root);
 
-        string encodedString = string.Join("", input.Select(c => encodingTable[c]));
+        var encodedString = string.Join("", input.Select(c => encodingTable[c]));
         return (encodedString, encodingTable);
     }
 
@@ -27,10 +27,10 @@ public static class Huffman
     public static string Decode(string encodedString, Dictionary<char, string> encodingTable)
     {
         var decodingTable = encodingTable.ToDictionary(kvp => kvp.Value, kvp => kvp.Key);
-        string decodedString = "";
-        string buffer = "";
+        var decodedString = "";
+        var buffer = "";
 
-        foreach (char bit in encodedString)
+        foreach (var bit in encodedString)
         {
             buffer += bit;
             if (decodingTable.ContainsKey(buffer))
@@ -48,7 +48,7 @@ public static class Huffman
     {
         var frequencyTable = new Dictionary<char, int>();
 
-        foreach (char c in input)
+        foreach (var c in input)
         {
             if (frequencyTable.ContainsKey(c))
                 frequencyTable[c]++;
@@ -64,7 +64,7 @@ public static class Huffman
     {
         var priorityQueue = new SortedSet<HuffmanNode>(Comparer<HuffmanNode>.Create((x, y) =>
         {
-            int compare = x.Frequency.CompareTo(y.Frequency);
+            var compare = x.Frequency.CompareTo(y.Frequency);
             return compare == 0 ? x.Symbol.CompareTo(y.Symbol) : compare;
         }));
 
