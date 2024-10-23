@@ -4,19 +4,19 @@ public static class LZSS
     private class Window
     {
         public int Size { get; private set; }
-        public List<char> Container { get; private set; }
+        public string Container { get; private set; }
 
         public Window(int size)
         {
             Size = size;
-            Container = new List<char>();
+            Container = string.Empty;
         }
 
         public Window Skip(int count)
         {
             for (var _ = 0; _ < count; _++)
             {
-                Container.RemoveAt(0);
+                Container = Container[1..];
             }
             return this;
         }
@@ -30,8 +30,8 @@ public static class LZSS
         }
         public Window Move(char? c)
         {
-            if (c != null) Container.Add(c.Value);
-            if (Container.Count > Size) Container.RemoveAt(0);
+            if (c != null) Container += c.Value;
+            if (Container.Length > Size) Container = Container[1..];
             return this;
         }
     }
@@ -46,7 +46,7 @@ public static class LZSS
         var buf = new Window(bs);
 
         // INITIAL FILL
-        while (buf.Container.Count < buf.Size)
+        while (buf.Container.Length < buf.Size)
         {
             var isNext = sourceQueue.TryDequeue(out var next);
             if (isNext) buf.Move(next);
@@ -54,38 +54,39 @@ public static class LZSS
         }
 
         // MAIN LOOP
-        while (buf.Container.Count > 0)
+        while (buf.Container.Length > 0)
         {
-            // Получим символ из буфера, с которым мы будем работать
-            var subwin = buf.Container.First().ToString();
+            var (start, size) = FindLongestMatch(win.Container, buf.Container);
 
-            // Поверим, есть ли он в окне
-            var start = win.Container.IndexOf(subwin[0]);
-
-            // Такой символ найден
-            if (start >= 0)
+            if (start == -1)
             {
-                // Попытаемся найти следующие символы в исходной строке
-                while (win.Container.Count > start + subwin.Length && buf.Container.Count > subwin.Length && win.Container[start + subwin.Length] == buf.Container[subwin.Length])
-                {
-                    subwin += buf.Container[subwin.Length];
-                }
-
-                // Добавим код закодированного символа
-                encodingData.Add((true, win.Container.Count == win.Size ? start : win.Size - win.Container.Count + start, subwin.Length, '0'));
-            } 
+                // Подстрока буфера не найдена в окне
+                // Добавим код не закодированного символа
+                encodingData.Add((false, 0, -1, buf.Container[0]));
+            }
             else
             {
-                // Такой символ не найден
-                // Добавим код не закодированного символа
-                encodingData.Add((false, 0, -1, subwin[0]));
+                // Подстрока буфера найдена в окне
+                // Добавим код закодированного символа
+                encodingData.Add((true, win.Container.Length == win.Size ? start : win.Size - win.Container.Length + start, size, '0'));
             }
 
             log?.Invoke($"{string.Join(",", win.Container)} | {string.Join(",", buf.Container)} -> {(encodingData.Last().coded ? $"(1<{encodingData.Last().start},{encodingData.Last().length}>)" : $"(0<{encodingData.Last().symbol}>)")}");
             
-            foreach (var c in subwin)
+            if (start == -1)
             {
-                win.Move(c);
+                win.Move(buf.Container[0]);
+
+                var isNext = sourceQueue.TryDequeue(out var next);
+                if (isNext) buf.Move(next);
+                else buf.Skip(1);
+
+                continue;
+            }
+
+            for (var i = 0; i < size; i++)
+            {
+                win.Move(buf.Container[0]);
 
                 var isNext = sourceQueue.TryDequeue(out var next);
                 if (isNext) buf.Move(next);
@@ -118,7 +119,7 @@ public static class LZSS
             }
             else
             {
-                var start = g.start - (win.Size - win.Container.Count);
+                var start = g.start - (win.Size - win.Container.Length);
 
                 var print = "";
 
@@ -135,5 +136,38 @@ public static class LZSS
         }
 
         return decoded;
+    }
+
+    private static (int, int) FindLongestMatch(string win, string buf)
+    {
+        var maxLength = 0;   // Длина наибольшего вхождения
+        var startIndex = -1; // Начальный индекс в win
+
+        for (var i = 0; i <= win.Length - buf.Length; i++)
+        {
+            var length = 0;
+
+            // Проверяем совпадение символов начиная с позиции i
+            for (var j = 0; j < buf.Length && (i + j) < win.Length; j++)
+            {
+                if (win[i + j] == buf[j])
+                {
+                    length++;
+                }
+                else
+                {
+                    break; // Прекращаем, если символы не совпадают
+                }
+            }
+
+            // Если нашли более длинное совпадение
+            if (length > maxLength)
+            {
+                maxLength = length;
+                startIndex = i;
+            }
+        }
+
+        return (startIndex, maxLength);
     }
 }
