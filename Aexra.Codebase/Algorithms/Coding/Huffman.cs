@@ -13,22 +13,33 @@ public static class Huffman
     }
 
     // Метод для кодирования строки
-    public static (string encodedString, Dictionary<char, string> encodingTable) Encode(string input)
+    public static (string encodedString, Dictionary<char, int> frequencyTable) Encode(string input, Action<string> log)
     {
         var frequencyTable = BuildFrequencyTable(input);
+
+        //log?.Invoke(string.Join("\n", frequencyTable.Select(kv => $"{kv.Key} -> {kv.Value}")));
+
         var root = BuildHuffmanTree(frequencyTable);
         var encodingTable = BuildEncodingTable(root);
 
+        //log?.Invoke(string.Join("\n", encodingTable.Select(kv => $"{kv.Key} -> {kv.Value}")));
+
         var encodedString = string.Join("", input.Select(c => encodingTable[c]));
-        return (encodedString, encodingTable);
+        return (encodedString, frequencyTable);
     }
 
     // Метод для декодирования строки
-    public static string Decode(string encodedString, Dictionary<char, string> encodingTable)
+    public static string Decode(string encodedString, Dictionary<char, int> frequencyTable, Action<string> log)
     {
-        var decodingTable = encodingTable.ToDictionary(kvp => kvp.Value, kvp => kvp.Key);
+        var encodingTable = BuildEncodingTable(BuildHuffmanTree(frequencyTable));
+
+        //log?.Invoke(string.Join("\n", frequencyTable.Select(kv => $"{kv.Key} -> {kv.Value}")));
+
+        var decodingTable = encodingTable.ToDictionary(kv => kv.Value, kv => kv.Key);
         var decodedString = "";
         var buffer = "";
+
+        //log?.Invoke(string.Join("\n", encodingTable.Select(kv => $"{kv.Key} -> {kv.Value}")));
 
         foreach (var bit in encodedString)
         {

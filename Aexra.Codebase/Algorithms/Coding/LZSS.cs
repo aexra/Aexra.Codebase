@@ -81,7 +81,7 @@ public static class LZSS
                 encodingData.Add((false, 0, -1, subwin[0]));
             }
 
-            log($"{string.Join(",", win.Container)} | {string.Join(",", buf.Container)} -> {(encodingData.Last().coded ? $"(1<{encodingData.Last().start},{encodingData.Last().length}>)" : $"(0<{encodingData.Last().symbol}>)")}");
+            log?.Invoke($"{string.Join(",", win.Container)} | {string.Join(",", buf.Container)} -> {(encodingData.Last().coded ? $"(1<{encodingData.Last().start},{encodingData.Last().length}>)" : $"(0<{encodingData.Last().symbol}>)")}");
             
             foreach (var c in subwin)
             {
@@ -104,7 +104,7 @@ public static class LZSS
 
         foreach (var g in encodingData)
         {
-            log($"{g.coded},{g.start},{g.length},{g.symbol}");
+            log?.Invoke($"{g.coded},{g.start},{g.length},{g.symbol}");
         }
 
         foreach (var g in encodingData)
@@ -114,7 +114,7 @@ public static class LZSS
                 decoded += g.symbol;
                 win.Move(g.symbol);
 
-                log(g.symbol.ToString());
+                log?.Invoke(g.symbol.ToString());
             }
             else
             {
@@ -130,7 +130,7 @@ public static class LZSS
                 decoded += print;
                 win.Move(print);
 
-                log($"{g.coded},{g.start},{g.length},{g.symbol} -> {print}");
+                log?.Invoke($"{g.coded},{g.start},{g.length},{g.symbol} -> {print}");
             }
         }
 
