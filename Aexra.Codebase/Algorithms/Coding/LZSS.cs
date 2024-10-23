@@ -143,11 +143,12 @@ public static class LZSS
         var maxLength = 0;   // Длина наибольшего вхождения
         var startIndex = -1; // Начальный индекс в win
 
-        for (var i = 0; i <= win.Length - buf.Length; i++)
+        // Перебираем возможные начальные позиции в win
+        for (var i = 0; i < win.Length; i++)
         {
             var length = 0;
 
-            // Проверяем совпадение символов начиная с позиции i
+            // Проверяем совпадение символов, ограничиваясь минимальной длиной между win и buf
             for (var j = 0; j < buf.Length && (i + j) < win.Length; j++)
             {
                 if (win[i + j] == buf[j])
