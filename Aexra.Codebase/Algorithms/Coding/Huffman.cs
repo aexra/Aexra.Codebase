@@ -21,7 +21,7 @@ public static class Huffman
     // Метод для кодирования строки
     public static (string encodedString, Dictionary<char, int> frequencyTable) Encode(string input, Action<string> log)
     {
-        var symbols = GetInputSymbols(input);
+        var symbols = from s in GetInputSymbols(input) orderby s.frequency descending select s;
         var nsTable = GetInitialNodeTable(symbols);
 
         var frequencyTable = new Dictionary<char, int>();
@@ -36,24 +36,30 @@ public static class Huffman
         var root = BuildRecursiveHuffmanTree(firstLayerNodes);
         var encodingTable = BuildEncodingTable(root, nsTable);
 
+        log?.Invoke(string.Join("\n", encodingTable.Select(t => $"{t.Key} -> {t.Value}")));
+
         var encodedString = EncodeString(input, encodingTable);
 
         return (encodedString, frequencyTable);
     }
 
     // Метод для декодирования строки
-    public static string Decode(string encodedString, Dictionary<char, int> frequencyTable, Action<string> log)
+    public static string Decode(string encodedString, int msgSize, Dictionary<char, int> frequencyTable, Action<string> log)
     {
-        var symbols = new List<Symbol>();
+        var symbolsTmp = new List<Symbol>();
         foreach (var symbol in frequencyTable)
         {
-            symbols.Add(new Symbol() { value = symbol.Key, count = symbol.Value });
+            symbolsTmp.Add(new Symbol() { value = symbol.Key, count = symbol.Value, frequency = (double)symbol.Value / msgSize });
         }
+
+        var symbols = from s in symbolsTmp orderby s.frequency descending select s;
 
         var nsTable = GetInitialNodeTable(symbols);
         var firstLayerNodes = nsTable.Select(kv => kv.Key);
         var root = BuildRecursiveHuffmanTree(firstLayerNodes);
         var encodingTable = BuildEncodingTable(root, nsTable);
+
+        log?.Invoke(string.Join("\n", encodingTable.Select(t => $"{t.Key} -> {t.Value}")));
 
         var decodingTable = encodingTable.ToDictionary(kv => kv.Value, kv => kv.Key);
         var decodedString = "";
