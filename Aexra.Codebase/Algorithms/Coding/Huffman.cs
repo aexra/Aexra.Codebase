@@ -1,45 +1,63 @@
 ﻿namespace Aexra.Codebase.Algorithms.Coding;
 public static class Huffman
 {
-    // Вспомогательный класс для узла дерева Хаффмана
-    private class HuffmanNode
+    private class Symbol
     {
-        public char Symbol { get; set; }
-        public int Frequency { get; set; }
-        public HuffmanNode Left { get; set; }
-        public HuffmanNode Right { get; set; }
+        public char value;
+        public int count;
+        public double frequency;
+    }
 
-        public bool IsLeaf => Left == null && Right == null;
+    private class Node
+    {
+        public Node left;
+        public Node right;
+        public double frequency;
+        public string code = string.Empty;
+
+        public bool IsLeaf => left == null && right == null;
     }
 
     // Метод для кодирования строки
     public static (string encodedString, Dictionary<char, int> frequencyTable) Encode(string input, Action<string> log)
     {
-        var frequencyTable = BuildFrequencyTable(input);
+        var symbols = GetInputSymbols(input);
+        var nsTable = GetInitialNodeTable(symbols);
 
-        //log?.Invoke(string.Join("\n", frequencyTable.Select(kv => $"{kv.Key} -> {kv.Value}")));
+        var frequencyTable = new Dictionary<char, int>();
 
-        var root = BuildHuffmanTree(frequencyTable);
-        var encodingTable = BuildEncodingTable(root);
+        foreach (var symbol in symbols)
+        {
+            frequencyTable[symbol.value] = symbol.count;
+        }
 
-        //log?.Invoke(string.Join("\n", encodingTable.Select(kv => $"{kv.Key} -> {kv.Value}")));
+        var firstLayerNodes = nsTable.Select(kv => kv.Key);
 
-        var encodedString = string.Join("", input.Select(c => encodingTable[c]));
+        var root = BuildRecursiveHuffmanTree(firstLayerNodes);
+        var encodingTable = BuildEncodingTable(root, nsTable);
+
+        var encodedString = EncodeString(input, encodingTable);
+
         return (encodedString, frequencyTable);
     }
 
     // Метод для декодирования строки
     public static string Decode(string encodedString, Dictionary<char, int> frequencyTable, Action<string> log)
     {
-        var encodingTable = BuildEncodingTable(BuildHuffmanTree(frequencyTable));
+        var symbols = new List<Symbol>();
+        foreach (var symbol in frequencyTable)
+        {
+            symbols.Add(new Symbol() { value = symbol.Key, count = symbol.Value });
+        }
 
-        //log?.Invoke(string.Join("\n", frequencyTable.Select(kv => $"{kv.Key} -> {kv.Value}")));
+        var nsTable = GetInitialNodeTable(symbols);
+        var firstLayerNodes = nsTable.Select(kv => kv.Key);
+        var root = BuildRecursiveHuffmanTree(firstLayerNodes);
+        var encodingTable = BuildEncodingTable(root, nsTable);
 
         var decodingTable = encodingTable.ToDictionary(kv => kv.Value, kv => kv.Key);
         var decodedString = "";
         var buffer = "";
-
-        //log?.Invoke(string.Join("\n", encodingTable.Select(kv => $"{kv.Key} -> {kv.Value}")));
 
         foreach (var bit in encodedString)
         {
@@ -70,59 +88,101 @@ public static class Huffman
         return frequencyTable;
     }
 
-    // Построение дерева Хаффмана
-    private static HuffmanNode BuildHuffmanTree(Dictionary<char, int> frequencyTable)
+    private static IEnumerable<Symbol> GetInputSymbols(string input)
     {
-        var priorityQueue = new SortedSet<HuffmanNode>(Comparer<HuffmanNode>.Create((x, y) =>
+        var symbols = new List<Symbol>();
+        var length = input.Length;
+        foreach (var c in input)
         {
-            var compare = x.Frequency.CompareTo(y.Frequency);
-            return compare == 0 ? x.Symbol.CompareTo(y.Symbol) : compare;
-        }));
-
-        foreach (var symbol in frequencyTable)
-        {
-            priorityQueue.Add(new HuffmanNode { Symbol = symbol.Key, Frequency = symbol.Value });
-        }
-
-        while (priorityQueue.Count > 1)
-        {
-            var left = priorityQueue.First();
-            priorityQueue.Remove(left);
-            var right = priorityQueue.First();
-            priorityQueue.Remove(right);
-
-            var newNode = new HuffmanNode
+            var symbol = symbols.Find(s => s.value == c);
+            if (symbol == null)
             {
-                Left = left,
-                Right = right,
-                Frequency = left.Frequency + right.Frequency
-            };
-
-            priorityQueue.Add(newNode);
+                symbols.Add(new Symbol() { value = c, count = 1 });
+            }
+            else
+            {
+                symbol.count++;
+            }
         }
 
-        return priorityQueue.First();
-    }
-
-    // Построение таблицы кодирования Хаффмана
-    private static Dictionary<char, string> BuildEncodingTable(HuffmanNode root)
-    {
-        var encodingTable = new Dictionary<char, string>();
-        BuildEncodingTableRecursive(root, "", encodingTable);
-        return encodingTable;
-    }
-
-    // Рекурсивное построение таблицы кодирования
-    private static void BuildEncodingTableRecursive(HuffmanNode node, string code, Dictionary<char, string> encodingTable)
-    {
-        if (node.IsLeaf)
+        foreach (var symbol in symbols)
         {
-            encodingTable[node.Symbol] = code;
+            symbol.frequency = (double)symbol.count / length;
+        }
+
+        return symbols;
+    }
+    private static IDictionary<Node, Symbol> GetInitialNodeTable(IEnumerable<Symbol> symbols)
+    {
+        var nodes = new Dictionary<Node, Symbol>();
+        foreach (var symbol in from s in symbols orderby s.frequency descending select s)
+        {
+            nodes.Add(new Node() { frequency = symbol.frequency }, symbol);
+        }
+        return nodes;
+    }
+    private static Node BuildRecursiveHuffmanTree(IEnumerable<Node> prevLayer)
+    {
+        if (prevLayer.Count() == 1) return prevLayer.First();
+        else
+        {
+            var newLayer = new List<Node>();
+
+            var right = prevLayer.ToList()[^1];
+            var left = prevLayer.ToList()[^2];
+            var newNode = new Node() { left = left, right = right, frequency = left.frequency + right.frequency };
+
+            foreach (var node in prevLayer)
+            {
+                if (node != left && node != right)
+                {
+                    newLayer.Add(node);
+                }
+            }
+
+            newLayer.Add(newNode);
+
+            return BuildRecursiveHuffmanTree(from node in newLayer orderby node.frequency descending select node);
+        }
+    }
+    private static void BuildRecursiveEncodingNodeLayer(Node root, ref List<Node> layer)
+    {
+        if (root.IsLeaf)
+        {
+            layer.Add(root);
+            return;
         }
         else
         {
-            BuildEncodingTableRecursive(node.Left, code + "0", encodingTable);
-            BuildEncodingTableRecursive(node.Right, code + "1", encodingTable);
+            root.left.code = root.code + "0";
+            root.right.code = root.code + "1";
+            BuildRecursiveEncodingNodeLayer(root.left, ref layer);
+            BuildRecursiveEncodingNodeLayer(root.right, ref layer);
         }
+    }
+    private static IDictionary<char, string> BuildEncodingTable(Node root, IDictionary<Node, Symbol> nsTable)
+    {
+        var encodingTable = new Dictionary<char, string>();
+
+        var encodingLayer = new List<Node>();
+        BuildRecursiveEncodingNodeLayer(root, ref encodingLayer);
+
+        foreach (var node in encodingLayer)
+        {
+            encodingTable.Add(nsTable[node].value, node.code);
+        }
+
+        return encodingTable;
+    }
+    private static string EncodeString(string input, IDictionary<char, string> encodingTable)
+    {
+        var output = string.Empty;
+
+        foreach (var c in input)
+        {
+            output += encodingTable[c];
+        }
+
+        return output;
     }
 }
